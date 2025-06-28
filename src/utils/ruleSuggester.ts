@@ -1,4 +1,4 @@
-import { Client, Worker, Task, RuleSuggestion, Rule } from "../types/types";
+import { Client, Worker, Task, RuleSuggestion } from "../types/types";
 
 export function generateRuleSuggestions(
   clients: Client[],
@@ -53,7 +53,7 @@ export function generateRuleSuggestions(
     }
   });
 
-  // ⏳ Phase Window Suggestions based on Task Duration (Example Rule)
+  // ⏳ Phase Window Suggestion based on Task Duration
   tasks.forEach((task) => {
     if (task.Duration > 8) {
       suggestions.push({
