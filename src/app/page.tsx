@@ -12,6 +12,7 @@ import { validateData } from "../utils/validator";
 import { applySearchQuery } from "../utils/searchParser";
 import { generateRuleSuggestions } from "../utils/ruleSuggester";
 import { generateRulesJson } from "../utils/rulesGenerator";
+import { downloadJSON } from "../utils/exporter";
 
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 
@@ -50,8 +51,9 @@ export default function Home() {
     fileType: keyof ParsedFileData
   ) => {
     try {
-      const isCSV = file.name.endsWith(".csv");
-      const parsed = isCSV ? await parseCSV(file) : await parseXLSX(file);
+      const parsed = file.name.endsWith(".csv")
+        ? await parseCSV(file)
+        : await parseXLSX(file);
 
       setData((prev) => ({
         ...prev,
@@ -59,54 +61,54 @@ export default function Home() {
       }));
     } catch (error) {
       console.error("Parsing error:", error);
-      alert("Error parsing file.");
+      alert("❌ Error parsing file.");
     }
   };
 
-  // ✅ Dynamic Columns for DataGrid
-  const generateColumns = (rows: Record<string, unknown>[]): GridColDef[] => {
-    if (!rows || rows.length === 0) return [];
+  // ✅ Dynamic Columns
+  const generateColumns = (rows: Record<string, any>[]): GridColDef[] => {
+    if (rows.length === 0) return [];
     return Object.keys(rows[0]).map((key) => ({
       field: key,
       headerName: key,
       width: 150,
-      editable: true,
     }));
   };
 
-  // ✅ Run validation whenever data updates
+  // ✅ Validation Hook
   useEffect(() => {
     const errors = validateData(data.clients, data.workers, data.tasks);
     setValidationErrors(errors);
   }, [data]);
 
-  // ✅ Filtered Data with Search
+  // ✅ Filtered Data
   const filteredTasks = applySearchQuery(data.tasks, taskSearchQuery);
   const filteredClients = applySearchQuery(data.clients, clientSearchQuery);
   const filteredWorkers = applySearchQuery(data.workers, workerSearchQuery);
 
   // ✅ Export Handler
   const handleExportAll = () => {
-    const exportData = {
+    if (
+      data.clients.length === 0 &&
+      data.workers.length === 0 &&
+      data.tasks.length === 0
+    ) {
+      alert("⚠️ No data to export.");
+      return;
+    }
+
+    const output = {
       clients: filteredClients,
       workers: filteredWorkers,
       tasks: filteredTasks,
-      rules: generateRulesJson(rules),
-      priorities,
+      ...generateRulesJson({ rules, priorities }), // ✅ Corrected here
     };
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: "application/json",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "data-alchemist-output.json";
-    a.click();
+    downloadJSON(output, "data-alchemist-output.json");
+    alert("✅ Export complete!");
   };
 
-  // ✅ AI Rule Suggestion
+  // ✅ AI Suggestions Handler
   const handleAISuggestions = () => {
     const suggestions = generateRuleSuggestions(
       data.clients,
@@ -115,15 +117,15 @@ export default function Home() {
     );
 
     if (suggestions.length === 0) {
-      alert("✅ No AI rule suggestions found.");
+      alert("✅ No AI suggestions found.");
       return;
     }
 
-    const confirmApply = window.confirm(
-      `🤖 Found ${suggestions.length} AI rule suggestions. Apply them?`
+    const confirm = window.confirm(
+      `🤖 Found ${suggestions.length} AI suggestions. Apply them?`
     );
 
-    if (confirmApply) {
+    if (confirm) {
       const newRules = suggestions.map((s) => s.rule);
       setRules((prev) => [...prev, ...newRules]);
     }
@@ -136,8 +138,12 @@ export default function Home() {
       <FileUploader onFileUpload={handleFileUpload} />
       <ValidationPanel errors={validationErrors} />
       <RuleBuilder rules={rules} setRules={setRules} />
-      <PrioritizationPanel priorities={priorities} setPriorities={setPriorities} />
+      <PrioritizationPanel
+        priorities={priorities}
+        setPriorities={setPriorities}
+      />
 
+      {/* 👉 Buttons */}
       <div className="flex gap-4 mt-4">
         <button
           onClick={handleAISuggestions}
@@ -150,13 +156,14 @@ export default function Home() {
           onClick={handleExportAll}
           className="bg-green-600 text-white px-4 py-2 rounded"
         >
-          🚀 Export (Filtered Data + Rules + Priorities)
+          🚀 Export (Data + Rules + Priorities)
         </button>
       </div>
 
+      {/* 👉 Data Display */}
       {(["clients", "workers", "tasks"] as (keyof ParsedFileData)[]).map(
         (type) => {
-          const filteredData =
+          const filtered =
             type === "tasks"
               ? filteredTasks
               : type === "clients"
@@ -179,11 +186,11 @@ export default function Home() {
 
               <div className="h-[400px] bg-white shadow rounded">
                 <DataGrid
-                  rows={filteredData.map((row, index) => ({
+                  rows={filtered.map((row, index) => ({
                     id: index,
                     ...row,
                   }))}
-                  columns={generateColumns(filteredData)}
+                  columns={generateColumns(filtered)}
                   pageSizeOptions={[5, 10]}
                   disableRowSelectionOnClick
                 />

@@ -18,18 +18,23 @@ export default function PrioritizationPanel({
     setPriorities({ ...priorities, [key]: value });
   };
 
-  return (
-    <div className="p-4 bg-yellow-50 border rounded mt-6">
-      <h3 className="text-xl font-bold mb-4">🎯 Prioritization & Weights</h3>
+  const sliders = [
+    { key: "priorityLevel", label: "Client Priority Level" },
+    { key: "taskFulfillment", label: "Task Fulfillment Preference" },
+    { key: "fairness", label: "Fairness Across Clients" },
+    { key: "workloadBalance", label: "Worker Workload Balance" },
+  ];
 
-      {[
-        { key: "priorityLevel", label: "Client Priority Level" },
-        { key: "taskFulfillment", label: "Task Fulfillment" },
-        { key: "fairness", label: "Fairness Across Clients" },
-        { key: "workloadBalance", label: "Workload Balance on Workers" },
-      ].map(({ key, label }) => (
-        <div key={key} className="mb-4">
-          <label className="block mb-1 font-medium">{label}</label>
+  return (
+    <div className="p-5 bg-yellow-50 border rounded-lg mt-6 shadow-sm">
+      <h3 className="text-2xl font-bold mb-4">🎯 Prioritization & Weights</h3>
+
+      {sliders.map(({ key, label }) => (
+        <div key={key} className="mb-5">
+          <label className="block mb-2 text-md font-medium text-gray-700">
+            {label}
+          </label>
+
           <input
             type="range"
             min={0}
@@ -38,9 +43,15 @@ export default function PrioritizationPanel({
             onChange={(e) =>
               handleChange(key as keyof Priorities, Number(e.target.value))
             }
-            className="w-full"
+            className="w-full accent-yellow-600"
           />
-          <div>Weight: {priorities[key as keyof Priorities]}</div>
+
+          <div className="mt-1 text-sm text-gray-600">
+            Weight:{" "}
+            <span className="font-semibold text-gray-800">
+              {priorities[key as keyof Priorities]}
+            </span>
+          </div>
         </div>
       ))}
     </div>
