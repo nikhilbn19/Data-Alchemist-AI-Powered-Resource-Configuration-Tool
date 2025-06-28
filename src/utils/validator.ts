@@ -1,3 +1,5 @@
+import { Client, Worker, Task } from "../types/types";
+
 // ✅ Expected Columns
 export const requiredClientColumns = [
   "ClientID",
@@ -29,46 +31,54 @@ export const requiredTaskColumns = [
 ];
 
 // ✅ Missing Columns Checker
-export function getMissingColumns(data: any[], requiredColumns: string[]) {
-  if (!data || data.length === 0) return requiredColumns;
+export function getMissingColumns<T extends object>(
+  data: T[],
+  requiredColumns: string[]
+): string[] {
+  if (!data.length) return requiredColumns;
   const fileColumns = Object.keys(data[0]);
   return requiredColumns.filter((col) => !fileColumns.includes(col));
 }
 
 // ✅ Duplicate IDs Checker
-export function getDuplicateIds(data: any[], idField: string) {
-  const seen = new Set();
+export function getDuplicateIds<T extends object>(
+  data: T[],
+  idField: keyof T
+): string[] {
+  const seen = new Set<string>();
   const duplicates: string[] = [];
+
   data.forEach((item) => {
-    const id = item[idField];
+    const id = String(item[idField]);
     if (seen.has(id)) {
       duplicates.push(id);
     } else {
       seen.add(id);
     }
   });
+
   return duplicates;
 }
 
-// ✅ JSON Validator Helper
-export function isValidJson(jsonString: string) {
+// ✅ JSON Validator
+export function isValidJson(jsonString: string): boolean {
   try {
     const parsed = JSON.parse(jsonString);
-    return typeof parsed === 'object';
-  } catch (e) {
+    return typeof parsed === "object" && parsed !== null;
+  } catch {
     return false;
   }
 }
 
-// ✅ Combined Validator Function
+// ✅ Main Validation Function
 export function validateData(
-  clients: any[],
-  workers: any[],
-  tasks: any[]
-) {
+  clients: Client[],
+  workers: Worker[],
+  tasks: Task[]
+): string[] {
   const errors: string[] = [];
 
-  // 🔍 Check Missing Columns
+  // 🔍 Missing Columns
   const missingClientCols = getMissingColumns(clients, requiredClientColumns);
   const missingWorkerCols = getMissingColumns(workers, requiredWorkerColumns);
   const missingTaskCols = getMissingColumns(tasks, requiredTaskColumns);
@@ -80,7 +90,7 @@ export function validateData(
   if (missingTaskCols.length)
     errors.push(`❌ Tasks missing columns: ${missingTaskCols.join(", ")}`);
 
-  // 🔍 Check Duplicate IDs
+  // 🔍 Duplicate IDs
   const duplicateClientIds = getDuplicateIds(clients, "ClientID");
   const duplicateWorkerIds = getDuplicateIds(workers, "WorkerID");
   const duplicateTaskIds = getDuplicateIds(tasks, "TaskID");
@@ -92,15 +102,14 @@ export function validateData(
   if (duplicateTaskIds.length)
     errors.push(`❌ Duplicate TaskIDs: ${duplicateTaskIds.join(", ")}`);
 
-  // 🔥 Additional Data Validations
-
+  // 🔥 Additional Data Validation
   const taskIDs = tasks.map((t) => t.TaskID);
   const workerSkills = workers.flatMap((w) =>
-    (w.Skills || "").split(",").map((s: string) => s.trim())
+    (w.Skills || "").split(",").map((s) => s.trim())
   );
 
-  // ✅ Clients
-  clients.forEach((client, index) => {
+  // ✅ Clients Validation
+  clients.forEach((client) => {
     if (client.PriorityLevel < 1 || client.PriorityLevel > 5) {
       errors.push(
         `❌ ClientID ${client.ClientID} → PriorityLevel must be between 1 and 5`
@@ -115,17 +124,19 @@ export function validateData(
 
     const requestedTasks = (client.RequestedTaskIDs || "")
       .split(",")
-      .map((t: string) => t.trim());
-    requestedTasks.forEach((tid: string) => {
-    if (!taskIDs.includes(tid)) {
-    errors.push(
-      `❌ ClientID ${client.ClientID} → RequestedTaskID '${tid}' not found`
-    );
-  }
-});
-});
+      .map((t) => t.trim())
+      .filter(Boolean);
 
-  // ✅ Workers
+    requestedTasks.forEach((tid) => {
+      if (!taskIDs.includes(tid)) {
+        errors.push(
+          `❌ ClientID ${client.ClientID} → RequestedTaskID '${tid}' not found`
+        );
+      }
+    });
+  });
+
+  // ✅ Workers Validation
   workers.forEach((worker) => {
     try {
       const slots = JSON.parse(worker.AvailableSlots);
@@ -141,7 +152,7 @@ export function validateData(
     }
   });
 
-  // ✅ Tasks
+  // ✅ Tasks Validation
   tasks.forEach((task) => {
     if (task.Duration < 1) {
       errors.push(
@@ -156,17 +167,17 @@ export function validateData(
 
     const requiredSkills = (task.RequiredSkills || "")
       .split(",")
-      .map((s: string) => s.trim());
-      requiredSkills.forEach((skill: string) => {
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    requiredSkills.forEach((skill) => {
       if (!workerSkills.includes(skill)) {
-       errors.push(
-      `❌ TaskID ${task.TaskID} → RequiredSkill '${skill}' not found in any worker`
-       );
-    }
-   });
+        errors.push(
+          `❌ TaskID ${task.TaskID} → RequiredSkill '${skill}' not found in any worker`
+        );
+      }
+    });
 
-
-    // Check PreferredPhases
     const pref = task.PreferredPhases;
     if (
       !pref ||
@@ -174,12 +185,11 @@ export function validateData(
         !pref.includes("-") &&
         isNaN(Number(pref)))
     ) {
-      errors.push(
-        `❌ TaskID ${task.TaskID} → PreferredPhases is malformed`
-      );
+      errors.push(`❌ TaskID ${task.TaskID} → PreferredPhases is malformed`);
     }
   });
 
+  // ✅ No Errors
   if (errors.length === 0) {
     errors.push("✅ No validation errors found!");
   }

@@ -1,4 +1,4 @@
-import { Rule } from "../components/RuleBuilder";
+import { Rule } from "../types/types";
 
 export function parseRuleFromText(input: string): Rule | null {
   const lower = input.toLowerCase();

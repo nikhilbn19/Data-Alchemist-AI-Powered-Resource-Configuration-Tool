@@ -1,21 +1,24 @@
-interface RuleSuggestion {
+import { Rule } from "../components/RuleBuilder";
+
+export interface RuleSuggestion {
   id: string;
   message: string;
-  rule: any;
+  rule: Rule;
 }
 
-interface Client {
-  RequestedTaskIDs?: string;
+export interface Client {
+  ClientID: string;
+  RequestedTaskIDs: string;
 }
 
-interface Worker {
+export interface Worker {
   WorkerID: string;
   AvailableSlots: string | number[];
   MaxLoadPerPhase: number;
   WorkerGroup: string;
 }
 
-interface Task {
+export interface Task {
   TaskID: string;
 }
 
@@ -28,13 +31,13 @@ export function generateRuleSuggestions(
 
   // 🔗 Co-Run Suggestion: Tasks frequently requested together
   const taskPairs: Record<string, number> = {};
-  clients.forEach((client: Client) => {
+  clients.forEach((client) => {
     const tasksList: string[] = (client.RequestedTaskIDs || "")
       .split(",")
-      .map((t: string) => t.trim())
+      .map((t) => t.trim())
       .filter((t) => t.length > 0);
 
-    tasksList.forEach((a: string, i: number) => {
+    tasksList.forEach((a, i) => {
       for (let j = i + 1; j < tasksList.length; j++) {
         const b = tasksList[j];
         const key = [a, b].sort().join("-");
@@ -49,13 +52,13 @@ export function generateRuleSuggestions(
       suggestions.push({
         id: `corun-${pair}`,
         message: `🤝 Suggest Co-Run for tasks ${taskList.join(", ")} (requested together ${count} times)`,
-        rule: { type: "coRun", tasks: taskList },
+        rule: { type: "coRun", parameters: taskList },
       });
     }
   });
 
   // 🚫 Overloaded Worker Suggestion
-  workers.forEach((worker: Worker) => {
+  workers.forEach((worker) => {
     const slots = parseAvailableSlots(worker.AvailableSlots);
     if (slots.length < worker.MaxLoadPerPhase) {
       suggestions.push({
@@ -63,8 +66,10 @@ export function generateRuleSuggestions(
         message: `⚠️ Worker ${worker.WorkerID} has only ${slots.length} slots but MaxLoadPerPhase is ${worker.MaxLoadPerPhase}. Suggest reducing load.`,
         rule: {
           type: "loadLimit",
-          workerGroup: worker.WorkerGroup,
-          maxSlotsPerPhase: slots.length,
+          parameters: {
+            workerGroup: worker.WorkerGroup,
+            maxSlotsPerPhase: slots.length,
+          },
         },
       });
     }

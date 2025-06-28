@@ -2,20 +2,30 @@
 
 import { useState, useEffect } from "react";
 import FileUploader from "../components/FileUploader";
+import ValidationPanel from "../components/ValidationPanel";
+import RuleBuilder from "../components/RuleBuilder";
+import PrioritizationPanel from "../components/PrioritizationPanel";
+import SearchBar from "../components/SearchBar";
+
 import { parseCSV, parseXLSX } from "../utils/parser";
 import { validateData } from "../utils/validator";
-import ValidationPanel from "../components/ValidationPanel";
-import RuleBuilder, { Rule } from "../components/RuleBuilder";
-import { generateRulesJson } from "../utils/rulesGenerator";
-import PrioritizationPanel, { Priorities } from "../components/PrioritizationPanel";
-import SearchBar from "../components/SearchBar";
 import { applySearchQuery } from "../utils/searchParser";
 import { generateRuleSuggestions } from "../utils/ruleSuggester";
+import { generateRulesJson } from "../utils/rulesGenerator";
 
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 
+import {
+  Client,
+  Worker,
+  Task,
+  ParsedFileData,
+  Rule,
+  Priorities,
+} from "../types/types";
+
 export default function Home() {
-  const [data, setData] = useState<Record<string, any[]>>({
+  const [data, setData] = useState<ParsedFileData>({
     clients: [],
     workers: [],
     tasks: [],
@@ -30,25 +40,31 @@ export default function Home() {
     workloadBalance: 50,
   });
 
-  // 🔍 Search States
   const [taskSearchQuery, setTaskSearchQuery] = useState<string>("");
   const [clientSearchQuery, setClientSearchQuery] = useState<string>("");
   const [workerSearchQuery, setWorkerSearchQuery] = useState<string>("");
 
   // ✅ File Upload Handler
-  const handleFileUpload = async (file: File, fileType: string) => {
+  const handleFileUpload = async (
+    file: File,
+    fileType: keyof ParsedFileData
+  ) => {
     try {
       const isCSV = file.name.endsWith(".csv");
       const parsed = isCSV ? await parseCSV(file) : await parseXLSX(file);
-      setData((prev) => ({ ...prev, [fileType]: parsed }));
+
+      setData((prev) => ({
+        ...prev,
+        [fileType]: parsed as Client[] | Worker[] | Task[],
+      }));
     } catch (error) {
       console.error("Parsing error:", error);
-      alert("Error parsing file");
+      alert("Error parsing file.");
     }
   };
 
-  // ✅ Generate Columns Dynamically
-  const generateColumns = (rows: any[]): GridColDef[] => {
+  // ✅ Dynamic Columns for DataGrid
+  const generateColumns = (rows: Record<string, unknown>[]): GridColDef[] => {
     if (!rows || rows.length === 0) return [];
     return Object.keys(rows[0]).map((key) => ({
       field: key,
@@ -58,20 +74,20 @@ export default function Home() {
     }));
   };
 
-  // ✅ Validation Hook
+  // ✅ Run validation whenever data updates
   useEffect(() => {
     const errors = validateData(data.clients, data.workers, data.tasks);
     setValidationErrors(errors);
   }, [data]);
 
-  // ✅ Apply Search Filters
+  // ✅ Filtered Data with Search
   const filteredTasks = applySearchQuery(data.tasks, taskSearchQuery);
   const filteredClients = applySearchQuery(data.clients, clientSearchQuery);
   const filteredWorkers = applySearchQuery(data.workers, workerSearchQuery);
 
-  // ✅ Export Handler (Filtered Data + Rules + Priorities)
+  // ✅ Export Handler
   const handleExportAll = () => {
-    const combinedExport = {
+    const exportData = {
       clients: filteredClients,
       workers: filteredWorkers,
       tasks: filteredTasks,
@@ -79,9 +95,10 @@ export default function Home() {
       priorities,
     };
 
-    const blob = new Blob([JSON.stringify(combinedExport, null, 2)], {
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
       type: "application/json",
     });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -89,7 +106,7 @@ export default function Home() {
     a.click();
   };
 
-  // ✅ AI Rule Suggestion Handler
+  // ✅ AI Rule Suggestion
   const handleAISuggestions = () => {
     const suggestions = generateRuleSuggestions(
       data.clients,
@@ -116,75 +133,65 @@ export default function Home() {
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-6">🧪 Data Alchemist</h1>
 
-      {/* 🔗 File Upload */}
       <FileUploader onFileUpload={handleFileUpload} />
-
-      {/* 🔍 Validation */}
       <ValidationPanel errors={validationErrors} />
-
-      {/* ⚙️ Rule Builder */}
       <RuleBuilder rules={rules} setRules={setRules} />
+      <PrioritizationPanel priorities={priorities} setPriorities={setPriorities} />
 
-      {/* 🎯 Prioritization */}
-      <PrioritizationPanel
-        priorities={priorities}
-        setPriorities={setPriorities}
-      />
+      <div className="flex gap-4 mt-4">
+        <button
+          onClick={handleAISuggestions}
+          className="bg-purple-600 text-white px-4 py-2 rounded"
+        >
+          🤖 AI Suggest Rules
+        </button>
 
-      {/* 🚀 AI Suggestions Button */}
-      <button
-        onClick={handleAISuggestions}
-        className="mt-4 bg-purple-600 text-white px-4 py-2 rounded"
-      >
-        🤖 AI Suggest Rules
-      </button>
+        <button
+          onClick={handleExportAll}
+          className="bg-green-600 text-white px-4 py-2 rounded"
+        >
+          🚀 Export (Filtered Data + Rules + Priorities)
+        </button>
+      </div>
 
-      {/* 📦 Export */}
-      <button
-        onClick={handleExportAll}
-        className="mt-4 bg-green-600 text-white px-4 py-2 rounded ml-4"
-      >
-        🚀 Export (Filtered Data + Rules + Priorities)
-      </button>
+      {(["clients", "workers", "tasks"] as (keyof ParsedFileData)[]).map(
+        (type) => {
+          const filteredData =
+            type === "tasks"
+              ? filteredTasks
+              : type === "clients"
+              ? filteredClients
+              : filteredWorkers;
 
-      {/* 📊 Data Grids with Search */}
-      {["clients", "workers", "tasks"].map((type) => {
-        const filteredData =
-          type === "tasks"
-            ? filteredTasks
-            : type === "clients"
-            ? filteredClients
-            : filteredWorkers;
+          return (
+            <div key={type} className="mt-10">
+              <h2 className="text-2xl font-semibold mb-2">
+                {type.toUpperCase()}
+              </h2>
 
-        return (
-          <div key={type} className="mt-10">
-            <h2 className="text-2xl font-semibold mb-2">
-              {type.toUpperCase()}
-            </h2>
-
-            {/* 🔍 Search Bar */}
-            <SearchBar
-              onSearch={(query) => {
-                if (type === "tasks") setTaskSearchQuery(query);
-                if (type === "clients") setClientSearchQuery(query);
-                if (type === "workers") setWorkerSearchQuery(query);
-              }}
-            />
-
-            <div className="h-[400px] bg-white shadow rounded">
-              <DataGrid
-                rows={filteredData.map((row, index) => ({
-                  id: index,
-                  ...row,
-                }))}
-                columns={generateColumns(filteredData)}
-                pageSizeOptions={[5, 10]}
-                disableRowSelectionOnClick
+              <SearchBar
+                onSearch={(query) => {
+                  if (type === "tasks") setTaskSearchQuery(query);
+                  if (type === "clients") setClientSearchQuery(query);
+                  if (type === "workers") setWorkerSearchQuery(query);
+                }}
               />
+
+              <div className="h-[400px] bg-white shadow rounded">
+                <DataGrid
+                  rows={filteredData.map((row, index) => ({
+                    id: index,
+                    ...row,
+                  }))}
+                  columns={generateColumns(filteredData)}
+                  pageSizeOptions={[5, 10]}
+                  disableRowSelectionOnClick
+                />
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        }
+      )}
     </div>
   );
 }

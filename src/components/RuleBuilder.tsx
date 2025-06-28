@@ -5,8 +5,8 @@ import { parseRuleFromText } from "../utils/naturalRuleParser";
 
 export type Rule = {
   type: string;
-  parameters?: any;
-  [key: string]: any;
+  parameters?: string[] | Record<string, unknown>;
+  [key: string]: unknown;
 };
 
 export default function RuleBuilder({
@@ -14,13 +14,12 @@ export default function RuleBuilder({
   setRules,
 }: {
   rules: Rule[];
-  setRules: React.Dispatch<React.SetStateAction<Rule[]>>; // ✅ Corrected type
+  setRules: React.Dispatch<React.SetStateAction<Rule[]>>;
 }) {
   const [ruleType, setRuleType] = useState("coRun");
   const [paramInput, setParamInput] = useState("");
   const [naturalRuleInput, setNaturalRuleInput] = useState("");
 
-  // ➕ Add Rule via Dropdown + Parameter Input
   const handleAddRule = () => {
     if (!paramInput) return;
     const params = paramInput
@@ -33,22 +32,20 @@ export default function RuleBuilder({
       parameters: params,
     };
 
-    setRules((prev) => [...prev, newRule]); // ✅ Now valid
+    setRules((prev) => [...prev, newRule]);
     setParamInput("");
   };
 
-  // 🪄 Add Rule via Natural Language
   const handleAddNaturalRule = () => {
     const parsed = parseRuleFromText(naturalRuleInput);
     if (parsed) {
-      setRules((prev) => [...prev, parsed]); // ✅ Fixed
+      setRules((prev) => [...prev, parsed]);
       setNaturalRuleInput("");
     } else {
       alert("❌ Could not understand the rule. Try a different phrasing.");
     }
   };
 
-  // ❌ Delete Rule
   const handleDeleteRule = (index: number) => {
     setRules((prev) => {
       const updated = [...prev];
@@ -61,7 +58,6 @@ export default function RuleBuilder({
     <div className="p-4 bg-blue-50 border rounded mt-6">
       <h3 className="text-xl font-bold mb-4">⚙️ Rule Builder</h3>
 
-      {/* 🔘 Dropdown Rule Creator */}
       <div className="flex gap-4 items-center mb-4">
         <select
           className="border p-2 rounded"
@@ -91,7 +87,6 @@ export default function RuleBuilder({
         </button>
       </div>
 
-      {/* 🪄 Natural Language Rule Converter */}
       <div className="mt-6 p-4 border rounded bg-white">
         <h4 className="text-lg font-semibold mb-2">
           🪄 AI Rule Converter (Natural Language)
@@ -112,7 +107,6 @@ export default function RuleBuilder({
         </button>
       </div>
 
-      {/* 📜 Rule List */}
       <div className="mt-6">
         {rules.length === 0 ? (
           <p className="text-gray-600">No rules added yet.</p>

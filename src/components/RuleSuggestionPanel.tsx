@@ -1,18 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Rule } from "./RuleBuilder";
+import { generateRuleSuggestions } from "../utils/ruleSuggester";
+import { Client, Worker, Task } from "../types/types";
 
 interface RuleSuggestion {
   id: string;
   message: string;
-  rule: any;
+  rule: Rule;
 }
 
 interface Props {
-  clients: any[];
-  workers: any[];
-  tasks: any[];
-  onAccept: (rule: any) => void;
+  clients: Client[];
+  workers: Worker[];
+  tasks: Task[];
+  onAccept: (rule: Rule) => void;
 }
 
 export default function RuleSuggestionPanel({
@@ -24,7 +27,6 @@ export default function RuleSuggestionPanel({
   const [suggestions, setSuggestions] = useState<RuleSuggestion[]>([]);
 
   useEffect(() => {
-    const { generateRuleSuggestions } = require("../utils/ruleSuggester");
     const result = generateRuleSuggestions(clients, workers, tasks);
     setSuggestions(result);
   }, [clients, workers, tasks]);
