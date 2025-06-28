@@ -107,10 +107,13 @@ https://<your-vercel-url>.vercel.app
 
 - Nikhil Bn
 
----
 
-## 🔥 License
+![Screenshot 2025-06-28 075322](https://github.com/user-attachments/assets/c6855ba0-7deb-440a-8d06-af5f46cfe743)
+![Screenshot 2025-06-28 075340](https://github.com/user-attachments/assets/6231bb1b-467e-4f7b-99bb-457aadf3c4d2)
+![Screenshot 2025-06-28 075352](https://github.com/user-attachments/assets/c3b027bd-f953-4069-908a-d83c46fdbd98)
+![Screenshot 2025-06-28 075412](https://github.com/user-attachments/assets/dfef46e1-c003-4764-b0c8-938c13254858)
 
-MIT License
 
----
+
+
+
