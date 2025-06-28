@@ -25,6 +25,30 @@ import {
   Priorities,
 } from "../types/types";
 
+// ✅ Helper to safely convert unknown types for DataGrid and CSV
+const convertToSafeRows = (
+  rows: (Client | Worker | Task)[]
+): Record<string, string | number | boolean | null>[] => {
+  return rows.map((row) => {
+    const safeRow: Record<string, string | number | boolean | null> = {};
+
+    Object.entries(row).forEach(([key, value]) => {
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean" ||
+        value === null
+      ) {
+        safeRow[key] = value;
+      } else {
+        safeRow[key] = value !== undefined ? JSON.stringify(value) : "";
+      }
+    });
+
+    return safeRow;
+  });
+};
+
 export default function Home() {
   const [data, setData] = useState<ParsedFileData>({
     clients: [],
@@ -65,8 +89,10 @@ export default function Home() {
     }
   };
 
-  // ✅ Dynamic Columns
-  const generateColumns = (rows: Record<string, any>[]): GridColDef[] => {
+  // ✅ Generate Columns
+  const generateColumns = (
+    rows: Record<string, string | number | boolean | null>[]
+  ): GridColDef[] => {
     if (rows.length === 0) return [];
     return Object.keys(rows[0]).map((key) => ({
       field: key,
@@ -101,7 +127,7 @@ export default function Home() {
       clients: filteredClients,
       workers: filteredWorkers,
       tasks: filteredTasks,
-      ...generateRulesJson({ rules, priorities }), // ✅ Corrected here
+      ...generateRulesJson({ rules, priorities }),
     };
 
     downloadJSON(output, "data-alchemist-output.json");
@@ -170,6 +196,8 @@ export default function Home() {
               ? filteredClients
               : filteredWorkers;
 
+          const safeRows = convertToSafeRows(filtered);
+
           return (
             <div key={type} className="mt-10">
               <h2 className="text-2xl font-semibold mb-2">
@@ -186,11 +214,11 @@ export default function Home() {
 
               <div className="h-[400px] bg-white shadow rounded">
                 <DataGrid
-                  rows={filtered.map((row, index) => ({
+                  rows={safeRows.map((row, index) => ({
                     id: index,
                     ...row,
                   }))}
-                  columns={generateColumns(filtered)}
+                  columns={generateColumns(safeRows)}
                   pageSizeOptions={[5, 10]}
                   disableRowSelectionOnClick
                 />
