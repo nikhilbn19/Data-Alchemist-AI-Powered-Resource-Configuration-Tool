@@ -1,103 +1,190 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import FileUploader from "../components/FileUploader";
+import { parseCSV, parseXLSX } from "../utils/parser";
+import { validateData } from "../utils/validator";
+import ValidationPanel from "../components/ValidationPanel";
+import RuleBuilder, { Rule } from "../components/RuleBuilder";
+import { generateRulesJson } from "../utils/rulesGenerator";
+import PrioritizationPanel, { Priorities } from "../components/PrioritizationPanel";
+import SearchBar from "../components/SearchBar";
+import { applySearchQuery } from "../utils/searchParser";
+import { generateRuleSuggestions } from "../utils/ruleSuggester";
+
+import { DataGrid, GridColDef } from "@mui/x-data-grid";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [data, setData] = useState<Record<string, any[]>>({
+    clients: [],
+    workers: [],
+    tasks: [],
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [priorities, setPriorities] = useState<Priorities>({
+    priorityLevel: 50,
+    taskFulfillment: 50,
+    fairness: 50,
+    workloadBalance: 50,
+  });
+
+  // 🔍 Search States
+  const [taskSearchQuery, setTaskSearchQuery] = useState<string>("");
+  const [clientSearchQuery, setClientSearchQuery] = useState<string>("");
+  const [workerSearchQuery, setWorkerSearchQuery] = useState<string>("");
+
+  // ✅ File Upload Handler
+  const handleFileUpload = async (file: File, fileType: string) => {
+    try {
+      const isCSV = file.name.endsWith(".csv");
+      const parsed = isCSV ? await parseCSV(file) : await parseXLSX(file);
+      setData((prev) => ({ ...prev, [fileType]: parsed }));
+    } catch (error) {
+      console.error("Parsing error:", error);
+      alert("Error parsing file");
+    }
+  };
+
+  // ✅ Generate Columns Dynamically
+  const generateColumns = (rows: any[]): GridColDef[] => {
+    if (!rows || rows.length === 0) return [];
+    return Object.keys(rows[0]).map((key) => ({
+      field: key,
+      headerName: key,
+      width: 150,
+      editable: true,
+    }));
+  };
+
+  // ✅ Validation Hook
+  useEffect(() => {
+    const errors = validateData(data.clients, data.workers, data.tasks);
+    setValidationErrors(errors);
+  }, [data]);
+
+  // ✅ Apply Search Filters
+  const filteredTasks = applySearchQuery(data.tasks, taskSearchQuery);
+  const filteredClients = applySearchQuery(data.clients, clientSearchQuery);
+  const filteredWorkers = applySearchQuery(data.workers, workerSearchQuery);
+
+  // ✅ Export Handler (Filtered Data + Rules + Priorities)
+  const handleExportAll = () => {
+    const combinedExport = {
+      clients: filteredClients,
+      workers: filteredWorkers,
+      tasks: filteredTasks,
+      rules: generateRulesJson(rules),
+      priorities,
+    };
+
+    const blob = new Blob([JSON.stringify(combinedExport, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "data-alchemist-output.json";
+    a.click();
+  };
+
+  // ✅ AI Rule Suggestion Handler
+  const handleAISuggestions = () => {
+    const suggestions = generateRuleSuggestions(
+      data.clients,
+      data.workers,
+      data.tasks
+    );
+
+    if (suggestions.length === 0) {
+      alert("✅ No AI rule suggestions found.");
+      return;
+    }
+
+    const confirmApply = window.confirm(
+      `🤖 Found ${suggestions.length} AI rule suggestions. Apply them?`
+    );
+
+    if (confirmApply) {
+      const newRules = suggestions.map((s) => s.rule);
+      setRules((prev) => [...prev, ...newRules]);
+    }
+  };
+
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-6">🧪 Data Alchemist</h1>
+
+      {/* 🔗 File Upload */}
+      <FileUploader onFileUpload={handleFileUpload} />
+
+      {/* 🔍 Validation */}
+      <ValidationPanel errors={validationErrors} />
+
+      {/* ⚙️ Rule Builder */}
+      <RuleBuilder rules={rules} setRules={setRules} />
+
+      {/* 🎯 Prioritization */}
+      <PrioritizationPanel
+        priorities={priorities}
+        setPriorities={setPriorities}
+      />
+
+      {/* 🚀 AI Suggestions Button */}
+      <button
+        onClick={handleAISuggestions}
+        className="mt-4 bg-purple-600 text-white px-4 py-2 rounded"
+      >
+        🤖 AI Suggest Rules
+      </button>
+
+      {/* 📦 Export */}
+      <button
+        onClick={handleExportAll}
+        className="mt-4 bg-green-600 text-white px-4 py-2 rounded ml-4"
+      >
+        🚀 Export (Filtered Data + Rules + Priorities)
+      </button>
+
+      {/* 📊 Data Grids with Search */}
+      {["clients", "workers", "tasks"].map((type) => {
+        const filteredData =
+          type === "tasks"
+            ? filteredTasks
+            : type === "clients"
+            ? filteredClients
+            : filteredWorkers;
+
+        return (
+          <div key={type} className="mt-10">
+            <h2 className="text-2xl font-semibold mb-2">
+              {type.toUpperCase()}
+            </h2>
+
+            {/* 🔍 Search Bar */}
+            <SearchBar
+              onSearch={(query) => {
+                if (type === "tasks") setTaskSearchQuery(query);
+                if (type === "clients") setClientSearchQuery(query);
+                if (type === "workers") setWorkerSearchQuery(query);
+              }}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+            <div className="h-[400px] bg-white shadow rounded">
+              <DataGrid
+                rows={filteredData.map((row, index) => ({
+                  id: index,
+                  ...row,
+                }))}
+                columns={generateColumns(filteredData)}
+                pageSizeOptions={[5, 10]}
+                disableRowSelectionOnClick
+              />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
