@@ -89,7 +89,7 @@ Deployed at:
 ```plaintext
 https://<your-vercel-url>.vercel.app
 ```
-
+https://data-alchemist-ai-powered-resource.vercel.app/
 ---
 
 ## 🧠 Tech Stack
