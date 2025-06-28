@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 export type Priorities = {
   priorityLevel: number;
   taskFulfillment: number;

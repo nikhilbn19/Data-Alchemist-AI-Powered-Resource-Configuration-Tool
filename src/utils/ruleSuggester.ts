@@ -1,26 +1,4 @@
-import { Rule } from "../components/RuleBuilder";
-
-export interface RuleSuggestion {
-  id: string;
-  message: string;
-  rule: Rule;
-}
-
-export interface Client {
-  ClientID: string;
-  RequestedTaskIDs: string;
-}
-
-export interface Worker {
-  WorkerID: string;
-  AvailableSlots: string | number[];
-  MaxLoadPerPhase: number;
-  WorkerGroup: string;
-}
-
-export interface Task {
-  TaskID: string;
-}
+import { Client, Worker, Task, RuleSuggestion, Rule } from "../types/types";
 
 export function generateRuleSuggestions(
   clients: Client[],
@@ -32,7 +10,7 @@ export function generateRuleSuggestions(
   // 🔗 Co-Run Suggestion: Tasks frequently requested together
   const taskPairs: Record<string, number> = {};
   clients.forEach((client) => {
-    const tasksList: string[] = (client.RequestedTaskIDs || "")
+    const tasksList = (client.RequestedTaskIDs || "")
       .split(",")
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
@@ -57,7 +35,7 @@ export function generateRuleSuggestions(
     }
   });
 
-  // 🚫 Overloaded Worker Suggestion
+  // 🚫 Worker Overload Suggestion
   workers.forEach((worker) => {
     const slots = parseAvailableSlots(worker.AvailableSlots);
     if (slots.length < worker.MaxLoadPerPhase) {
@@ -75,9 +53,27 @@ export function generateRuleSuggestions(
     }
   });
 
+  // ⏳ Phase Window Suggestions based on Task Duration (Example Rule)
+  tasks.forEach((task) => {
+    if (task.Duration > 8) {
+      suggestions.push({
+        id: `phase-${task.TaskID}`,
+        message: `⏳ Task ${task.TaskID} has a long duration (${task.Duration}). Suggest limiting to phases 1-2.`,
+        rule: {
+          type: "phaseWindow",
+          parameters: {
+            task: task.TaskID,
+            allowedPhases: [1, 2],
+          },
+        },
+      });
+    }
+  });
+
   return suggestions;
 }
 
+// ✅ Helper function
 function parseAvailableSlots(slots: string | number[] | undefined): number[] {
   try {
     if (typeof slots === "string") {
