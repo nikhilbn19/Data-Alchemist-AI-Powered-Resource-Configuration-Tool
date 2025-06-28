@@ -1,4 +1,4 @@
-import { Rule, RuleSuggestion, Client, Worker, Task } from "../types/types";
+import { RuleSuggestion, Client, Worker, Task } from "../types/types";
 
 // ✅ Generate Rule Suggestions Based on Data
 export function generateRuleSuggestions(
